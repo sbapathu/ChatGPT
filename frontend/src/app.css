@@ -1,0 +1,344 @@
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Inter, Arial, sans-serif;
+  color: #202123;
+  background: #ffffff;
+}
+
+button,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+.app {
+  display: flex;
+  height: 100vh;
+  height: 100dvh;
+}
+
+.sidebar {
+  width: 250px;
+  padding: 22px 16px;
+  background: aliceblue;
+  /* border-right: 1px solid #e5e5e5; */
+  flex-shrink: 0;
+}
+
+.sidebar h2 {
+  margin: 0 0 25px;
+  font-size: 21px;
+}
+
+.sidebar button {
+  width: 100%;
+  padding: 12px;
+  text-align: left;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  background: white;
+}
+
+.side-note {
+  margin-top: 20px;
+  font-size: 12px;
+  color: #777;
+}
+
+.chat {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.topbar {
+  padding: 14px 24px;
+  /* border-bottom: 1px solid #eee; */
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  background-color: aliceblue;
+}
+
+.topbar span {
+  font-size: 13px;
+  color: #777;
+}
+
+.messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 16px;
+}
+
+.welcome {
+  min-height: 60%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+}
+
+.welcome h1 {
+  font-size: clamp(25px, 4vw, 34px);
+  margin-bottom: 8px;
+}
+
+.welcome p {
+  color: #777;
+}
+
+.message {
+  display: flex;
+  gap: 15px;
+  max-width: 780px;
+  margin: 0 auto 28px;
+  line-height: 1.65;
+}
+
+.avatar {
+  width: 35px;
+  height: 35px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #e9e9e9;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.assistant .avatar {
+  background: #d8f3e4;
+}
+
+.content {
+  flex: 1;
+  min-width: 0;
+}
+
+.content strong {
+  font-size: 14px;
+}
+
+.content p {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  margin-top: 5px;
+}
+
+.thinking,
+.error {
+  max-width: 780px;
+  margin: 0 auto 18px;
+  color: #666;
+}
+
+.dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 9px;
+  border-radius: 50%;
+  background: #10a37f;
+  animation: pulse 1s infinite alternate;
+}
+
+@keyframes pulse {
+  to {
+    opacity: 0.25;
+  }
+}
+
+.error {
+  color: #b42318;
+}
+
+.error button {
+  margin-left: 10px;
+}
+
+.composer {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  width: min(800px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 12px;
+  border: 1px solid #ddd;
+  border-radius: 18px;
+  box-shadow: 0 2px 8px #0000000a;
+}
+
+.composer textarea {
+  flex: 1;
+  min-width: 0;
+  max-height: 180px;
+  resize: vertical;
+  border: none;
+  outline: none;
+  padding: 8px;
+}
+
+.composer button {
+  width: 38px;
+  height: 38px;
+  border: none;
+  border-radius: 12px;
+  background: #10a37f;
+  color: white;
+  font-size: 22px;
+}
+
+.composer button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.disclaimer {
+  text-align: center;
+  padding: 10px;
+  color: #888;
+  font-size: 11px;
+}
+
+@media (max-width: 650px) {
+  .sidebar {
+    width: 115px;
+    padding: 14px 8px;
+  }
+
+  .sidebar h2 {
+    font-size: 15px;
+  }
+
+  .topbar {
+    padding: 15px 12px;
+    font-size: 13px;
+  }
+
+  .topbar span {
+    font-size: 11px;
+  }
+
+  .messages {
+    padding: 18px 12px;
+  }
+}
+
+
+.auth-page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: #f7f7f8;
+}
+
+.auth-card {
+  width: min(100%, 410px);
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border: 1px solid #e5e5e5;
+  border-radius: 18px;
+  background: white;
+  box-shadow: 0 8px 30px #0000000a;
+}
+
+.auth-card h1 {
+  margin: 0;
+  text-align: center;
+}
+
+.auth-card > p {
+  text-align: center;
+  color: #666;
+}
+
+.auth-card label {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.auth-card input {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+}
+
+.auth-card > button {
+  padding: 12px;
+  border: none;
+  border-radius: 8px;
+  color: white;
+  background: #10a37f;
+}
+
+.auth-card button:disabled {
+  opacity: 0.6;
+}
+
+.auth-error {
+  color: #b42318;
+  overflow-wrap: anywhere;
+}
+
+.switch-mode {
+  font-size: 14px;
+}
+
+.text-button {
+  padding: 0;
+  border: none;
+  color: #087f65;
+  background: transparent;
+  font-weight: 600;
+}
+
+.account {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  overflow-wrap: anywhere;
+}
+
+.account span {
+  font-size: 14px;
+  color: #666;
+}
+
+.account button {
+  padding: 8px 14px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background: white;
+  cursor: pointer;
+}
+
+.account button:hover {
+  background: #f3f3f3;
+}
+
+.account button {
+  margin-top: 8px;
+}
+
+@media (max-width: 650px) {
+  .auth-card {
+    padding: 24px;
+  }
+}
