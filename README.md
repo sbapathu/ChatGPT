@@ -49,7 +49,7 @@ A local ChatGPT-style application built using **React with Vite** for the fronte
   python -c "import secrets; print(secrets.token_hex(32))"
 
 ## Environment variables
-  SET JWT_SECRET_KEY=1fa6795cf26d6b22141e460c42a234060d8d27a741f32e7e4aebc5a94fcb2861
+  SET JWT_SECRET_KEY=<JWT_SECRET_KEY>
   or 
   SET JWT_SECRET_KEY = python -c "import secrets; print(secrets.token_hex(32))"
 
