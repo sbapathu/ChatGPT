@@ -1,7 +1,7 @@
 # ChatGPT Clone — FastAPI, React, Ollama
 A local ChatGPT-style application built using **React with Vite** for the frontend, **Python with FastAPI** for the backend, and **Ollama** for local AI model integration. The application includes user registration, login with JWT-based authentication, secure password hashing using Argon2, and a protected AI chat endpoint for authenticated users.
 
-# Note:This is not a production ready system
+### Note:This is not a production ready system
 
 ## Requirements
 - Python 3.10+
@@ -18,18 +18,18 @@ A local ChatGPT-style application built using **React with Vite** for the fronte
 
 ## 2. Backend setup
   
-  # Create Virtual Environment
+  ### Create Virtual Environment
     Open new cmd terminal from project directory
     cd backend
     python -m venv .venv
 
-  # Active Virtual Environment
+  ### Active Virtual Environment
     .venv\Scripts\Activate.ps1
 
-  # Install Python packages dependencies 
+  ### Install Python packages dependencies 
     pip install -r requirements.txt
 
-  # API server run
+  ### API server run
     uvicorn app.main:app --reload --port 8000
 
     Backend(like Swagger API) docs: http://localhost:8000/docs
@@ -49,7 +49,7 @@ A local ChatGPT-style application built using **React with Vite** for the fronte
   python -c "import secrets; print(secrets.token_hex(32))"
 
 ## Environment variables
-  SET JWT_SECRET_KEY=1fa6795cf26d6b22141e460c42a234060d8d27a741f32e7e4aebc5a94fcb2861
+  SET JWT_SECRET_KEY=<JWT_SECRET_KEY>
   or 
   SET JWT_SECRET_KEY = python -c "import secrets; print(secrets.token_hex(32))"
 
@@ -82,7 +82,7 @@ A local ChatGPT-style application built using **React with Vite** for the fronte
   }
   ```
 
-### Example protected chat request
+## Example protected chat request
 
 **API**
   ```http
