@@ -1,0 +1,5 @@
+Requirement already satisfied: alembic in C:\Users\sbapa\OneDrive\Desktop\BlueYonder\chatgpt_clone\.venv\Lib\site-packages (1.20.0)
+Requirement already satisfied: SQLAlchemy>=2.0 in C:\Users\sbapa\OneDrive\Desktop\BlueYonder\chatgpt_clone\.venv\Lib\site-packages (from alembic) (2.1.4)
+Requirement already satisfied: Mako in C:\Users\sbapa\OneDrive\Desktop\BlueYonder\chatgpt_clone\.venv\Lib\site-packages (from alembic) (1.4.3)
+Requirement already satisfied: typing-extensions>=4.12 in C:\Users\sbapa\OneDrive\Desktop\BlueYonder\chatgpt_clone\.venv\Lib\site-packages (from alembic) (4.16.0)
+Requirement already satisfied: MarkupSafe>=2.0 in C:\Users\sbapa\OneDrive\Desktop\BlueYonder\chatgpt_clone\.venv\Lib\site-packages (from Mako->alembic) (3.0.4)

@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import "./App.css";
 
-const API = "http://localhost:8000/api";
+const API = "http://localhost:8000/api/v1/api";
 
 export default function App() {
   const [token, setToken] = useState("");
@@ -15,12 +15,22 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const bottomRef = useRef(null);
+  const [conversationId, setConversationId] = useState(null);
+  const [conversations, setConversations] = useState([]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({
       behavior: "smooth",
     });
   }, [messages, loading]);
+
+  useEffect(() => {
+    if (!token) return;
+
+    loadConversations().catch((err) => {
+      setError(err.message);
+    });
+  }, [token]);
 
   async function authRequest(event) {
     event.preventDefault();
@@ -42,14 +52,16 @@ export default function App() {
       if (!response.ok) {
         throw new Error(data.detail || "Authentication failed");
       }
-
+      console.log("Authentication successful:", data);
       setToken(data.access_token);
       setUser(data.user);
       setPassword("");
       setMessages([]);
     } catch (err) {
+      console.error("Authentication error:", err);
       setError(err.message || "Could not connect to server");
     } finally {
+      console.log("Setting loading to false");
       setLoading(false);
     }
   }
@@ -77,7 +89,7 @@ export default function App() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ messages: updated }),
+        body: JSON.stringify({ messages: updated , conversation_id: conversationId}),
       });
 
       const data = await response.json();
@@ -93,14 +105,65 @@ export default function App() {
         throw new Error(data.detail || "Chat request failed");
       }
 
+      setConversationId(data.conversation_id);
+
       setMessages([
         ...updated,
         { role: "assistant", content: data.reply },
       ]);
+
+      loadConversations().catch(console.error);
+
     } catch (err) {
       setError(err.message || "Unable to reach the AI");
     } finally {
       setLoading(false);
+    }
+  }
+
+  
+  async function loadConversations() {
+    const response = await fetch(
+      `${API}/conversations`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error("Unable to load conversations");
+    }
+
+    setConversations(await response.json());
+  }
+
+  async function openConversation(id) {
+    setError("");
+
+    try {
+      const response = await fetch(
+        `${API}/conversations/${id}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.detail || "Unable to open conversation"
+        );
+      }
+
+      setConversationId(data.id);
+      setMessages(data.messages);
+    } catch (err) {
+      setError(err.message);
     }
   }
 
@@ -111,9 +174,11 @@ export default function App() {
     setInput("");
     setError("");
     setMode("login");
+    setConversationId(null);
   }
 
   function newChat() {
+    setConversationId(null);
     setMessages([]);
     setInput("");
     setError("");
@@ -194,7 +259,25 @@ export default function App() {
     <div className="app">
       <aside className="sidebar">
         <h2>ChatGpt AI</h2>
-        <button onClick={newChat}>+ New chat</button>        
+        <button onClick={newChat}>+ New chat</button> 
+        
+        <div className="conversation-list">
+          <h4>Recent chats</h4>
+
+          {conversations.map((conversation) => (
+            <button
+              key={conversation.id}
+              className={
+                conversationId === conversation.id
+                  ? "conversation-item active"
+                  : "conversation-item"
+              }
+              onClick={() => openConversation(conversation.id)}
+            >
+              {conversation.title}
+            </button>
+          ))}
+        </div>
       </aside>
 
       <main className="chat">

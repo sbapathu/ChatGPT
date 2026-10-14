@@ -1,0 +1,22 @@
+# Python compiled files
+*.pyc
+*.pyo
+*.pyd
+
+# Python cache directories
+__pycache__/
+**/__pycache__/
+
+# Virtual environments
+venv/
+.venv/
+
+# Environment variables
+.env
+
+# IDE files
+.vscode/
+.idea/
+
+# NodeModules
+node_modules

@@ -1,5 +1,5 @@
-# ChatGPT Clone — FastAPI, React, Ollama
-A local ChatGPT-style application built using **React with Vite** for the frontend, **Python with FastAPI** for the backend, and **Ollama** for local AI model integration. The application includes user registration, login with JWT-based authentication, secure password hashing using Argon2, and a protected AI chat endpoint for authenticated users.
+# ChatGPT Clone — FastAPI, React, Ollama and Postgresql
+A local ChatGPT-style application built using **React with Vite** for the frontend, **Python with FastAPI** for the backend, **Ollama** for local AI model integration and **Postgresql** for database. The application includes user registration, login with JWT-based authentication, secure password hashing using Argon2, and a protected AI chat endpoint for authenticated users.
 
 ### Note:This is not a production ready system
 
@@ -7,16 +7,25 @@ A local ChatGPT-style application built using **React with Vite** for the fronte
 - Python 3.10+
 - Node.js 18+
 - Ollama
+- PostgreSQL
+- pgadmin
 
 ## 1. ollama setup 
       1. Download ollama from https://ollama.com/download and install it
       2. Download a model llama3.2 by using the command in command prompt: 
-         **ollama pull llama3.2**
+         **ollama pull llama3.2:1b**
       3. Test the model in command prompt using below command
-          **ollama run llama3.2**
+          **ollama run llama3.2:1b**
       4. Ollama normally exposes its local API at http://localhost:11434.
 
-## 2. Backend setup
+## 2. Database (postgresql setup)
+    1. Open pgadmin or psql 
+    2. The create a user by using below command
+        **CREATE USER chatgpt_user WITH PASSWORD 'use_a_strong_password'**
+    3. After user creation, create a Database for ChatGPT API Clone using below command
+        **CREATE DATABASE chatgpt_clone OWNER chatgpt_user;**
+
+## 3. Backend setup
   
   ### Create Virtual Environment
     Open new cmd terminal from project directory
@@ -33,8 +42,9 @@ A local ChatGPT-style application built using **React with Vite** for the fronte
     uvicorn app.main:app --reload --port 8000
 
     Backend(like Swagger API) docs: http://localhost:8000/docs
+  ### Authenticate Swagger api using login credentials 
 
-## 3. Frontend setup
+## 4. Frontend setup
 
   In a new cmd terminal:
 
@@ -44,7 +54,7 @@ A local ChatGPT-style application built using **React with Vite** for the fronte
 
   Open the URL printed by Vite, usually http://localhost:5173.
 
-## 4. JWT secret generation
+## 5. JWT secret generation
   In another terminal
   python -c "import secrets; print(secrets.token_hex(32))"
 
