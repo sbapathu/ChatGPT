@@ -18,8 +18,6 @@ router = APIRouter()
 def home():
     return {"message": "Chat API is running"}
 
-from fastapi.security import OAuth2PasswordRequestForm
-
 @router.post("/api/auth/token", status_code=status.HTTP_200_OK)
 def swagger_login(
     form_data: OAuth2PasswordRequestForm = Depends(),

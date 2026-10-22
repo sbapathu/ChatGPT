@@ -24,6 +24,7 @@ A local ChatGPT-style application built using **React with Vite** for the fronte
         **CREATE USER chatgpt_user WITH PASSWORD 'use_a_strong_password'**
     3. After user creation, create a Database for ChatGPT API Clone using below command
         **CREATE DATABASE chatgpt_clone OWNER chatgpt_user;**
+    4. Add the user password to Environment variable as pet Step 6.
 
 ## 3. Backend setup
   
@@ -58,13 +59,11 @@ A local ChatGPT-style application built using **React with Vite** for the fronte
   In another terminal
   python -c "import secrets; print(secrets.token_hex(32))"
 
-## Environment variables
-  SET JWT_SECRET_KEY=<JWT_SECRET_KEY>
-  or 
-  SET JWT_SECRET_KEY = python -c "import secrets; print(secrets.token_hex(32))"
+## 6. Environment variables
+  SET JWT_SECRET_KEY=<JWT_SECRET_KEY> # Copy the secret code generated in point 5.
+  SET DB_USER_PWD=<DB_USER_PWD>
 
-
-## Sample API Registration payload
+## 7. Sample API Registration payload
 
 **API** 
   ```http
