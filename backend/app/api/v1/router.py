@@ -1,4 +1,6 @@
 import httpx
+import asyncio
+import json
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from app.models.user import User
@@ -11,6 +13,10 @@ from app.core.config import settings
 from app.db.session import get_db
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
+from fastapi.responses import StreamingResponse
+from app.db.session import SessionLocal
+from app.services.ollama_service import stream_ollama
+from app.core.security import get_current_user
 
 router = APIRouter()
 
@@ -18,7 +24,7 @@ router = APIRouter()
 def home():
     return {"message": "Chat API is running"}
 
-@router.post("/api/auth/token", status_code=status.HTTP_200_OK)
+@router.post("/auth/token", status_code=status.HTTP_200_OK)
 def swagger_login(
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db)
@@ -41,7 +47,7 @@ def swagger_login(
 
     return token_response(user)
     
-@router.post("/api/auth/register", status_code=201)
+@router.post("/auth/register", status_code=201)
 def register(data: RegisterRequest, db: DbSession):
     email = data.email.strip().lower()
 
@@ -76,7 +82,7 @@ def register(data: RegisterRequest, db: DbSession):
 
     return token_response(user)
 
-@router.post("/api/auth/login")
+@router.post("/auth/login")
 def login(data: LoginRequest, db: DbSession):
     email = data.email.strip().lower()
     user = db.scalar(
@@ -96,11 +102,11 @@ def login(data: LoginRequest, db: DbSession):
 
     return token_response(user)
 
-@router.get("/api/auth/me")
+@router.get("/auth/me")
 def get_me(user: CurrentUser):
     return user_response(user)
 
-@router.get("/api/conversations")
+@router.get("/conversations")
 def list_conversations(
     user: CurrentUser,
     db: DbSession,
@@ -120,7 +126,7 @@ def list_conversations(
         for c in conversations
     ]
 
-@router.get("/api/conversations/{conversation_id}")
+@router.get("/conversations/{conversation_id}")
 def get_conversation(
     conversation_id: int,
     user: CurrentUser,
@@ -156,7 +162,7 @@ def get_conversation(
         ],
     }
 
-@router.post("/api/chat")
+@router.post("/chat")
 async def chat(
     request: ChatRequest,
     user: CurrentUser,
@@ -260,3 +266,79 @@ async def chat(
         db.rollback()
         raise
 
+
+
+# Streaming chat: authenticated users, PostgreSQL history and SSE events.
+def _sse(event, data):
+    return f"event: {event}\ndata: {json.dumps(data)}\n\n"
+
+def _prepare_stream(user_id, payload):
+    with SessionLocal.begin() as db:
+        if payload.conversation_id is None:
+            conv = Conversation(user_id=user_id, title=payload.message[:60])
+            db.add(conv)
+            db.flush()
+        else:
+            conv = db.scalar(select(Conversation).where(
+                Conversation.id == payload.conversation_id,
+                Conversation.user_id == user_id))
+            if conv is None:
+                raise ValueError("Conversation not found")
+        history = [{"role": m.role, "content": m.content} for m in db.scalars(
+            select(ChatMessage).where(
+                ChatMessage.conversation_id == conv.id,
+                ChatMessage.status == "completed"
+            ).order_by(ChatMessage.id)).all()]
+        db.add(ChatMessage(conversation_id=conv.id, role="user",
+                           content=payload.message, status="completed"))
+        assistant = ChatMessage(conversation_id=conv.id, role="assistant",
+                                content="", status="streaming")
+        db.add(assistant)
+        db.flush()
+        return conv.id, assistant.id, history + [{"role": "user", "content": payload.message}]
+
+def _save_stream(message_id, content, status):
+    with SessionLocal.begin() as db:
+        msg = db.get(ChatMessage, message_id)
+        if msg is not None:
+            msg.content = content
+            msg.status = status
+
+@router.post("/chat/stream", tags=["chat"])
+async def chat_stream(payload: ChatRequest, user: User = Depends(get_current_user)):
+    try:
+        conversation_id, assistant_id, history = await asyncio.to_thread(
+            _prepare_stream, user.id, payload)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+    async def events():
+        chunks = []
+        status = "cancelled"
+        try:
+            yield _sse("meta", {"conversation_id": conversation_id,
+                                 "assistant_message_id": assistant_id})
+            async for chunk in stream_ollama(history):
+                chunks.append(chunk)
+                yield _sse("token", {"content": chunk})
+            status = "completed"
+        except asyncio.CancelledError:
+            status = "cancelled"
+            raise
+        except Exception:
+            status = "failed"
+            yield _sse("error", {"message": "Ollama generation failed"})
+        finally:
+            # A shielded task continues the write if request cancellation occurs.
+            task = asyncio.create_task(asyncio.to_thread(
+                _save_stream, assistant_id, "".join(chunks), status))
+            try:
+                await asyncio.shield(task)
+            except asyncio.CancelledError:
+                pass
+        if status == "completed":
+            yield _sse("done", {"conversation_id": conversation_id,
+                                "assistant_message_id": assistant_id})
+
+    return StreamingResponse(events(), media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
