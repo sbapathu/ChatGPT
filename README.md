@@ -63,7 +63,10 @@ A local ChatGPT-style application built using **React with Vite** for the fronte
   SET JWT_SECRET_KEY=<JWT_SECRET_KEY> # Copy the secret code generated in point 5.
   SET DB_USER_PWD=<DB_USER_PWD>
 
-## 7. Sample API Registration payload
+### 7. Alembic migrations:
+    alembic upgrade head
+    
+## 8. Sample API Registration payload
 
 **API** 
   ```http
