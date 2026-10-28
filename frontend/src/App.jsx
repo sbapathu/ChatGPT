@@ -5,8 +5,12 @@ import "./App.css";
 
 function getReply(data) {
   for (const key of ['reply', 'response', 'answer', 'assistant_message', 'content']) {
-    if (typeof data?.[key] === 'string') return data[key];
-    if (typeof data?.[key]?.content === 'string') return data[key].content;
+    if (typeof data?.[key] === 'string') {
+      return data[key];
+    }
+    if (typeof data?.[key]?.content === 'string') {
+      return data[key].content;
+    }
   }
   if (typeof data?.message === 'string') return data.message;
   return JSON.stringify(data);
@@ -25,20 +29,31 @@ function AuthForm({ onClose, onSuccess }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   async function submit(e) {
-    e.preventDefault(); setBusy(true); setError('');
+    e.preventDefault(); 
+    setBusy(true); 
+    setError('');
     try {
       if (mode === 'register') {
         await api.register({ email, password, full_name: name });
       }
       const result = await api.login({ email, password });
       const token = result.access_token || result.token;
-      if (!token) throw new Error('Login succeeded but no access token was returned.');
-      setToken(token); await onSuccess(); onClose();
-    } catch (err) { setError(err.message); }
-    finally { setBusy(false); }
+      if (!token) { 
+        throw new Error('Login succeeded but no access token was returned.');
+      }
+      setToken(token); 
+      await onSuccess(); 
+      onClose();
+    } catch (err) { 
+      setError(err.message); 
+    }
+    finally { 
+      setBusy(false); 
+    }
   }
-  return <div className="modal-backdrop" onMouseDown={onClose}><div className="modal" onMouseDown={e => e.stopPropagation()}>
-    <button className="close" onClick={onClose} aria-label="Close"><X size={20}/></button>
+  return <div className="modal-backdrop" onMouseDown={onClose}>
+            <div className="modal" onMouseDown={e => e.stopPropagation()}>
+              <button className="close" onClick={onClose} aria-label="Close"><X size={20}/></button>
     <div className="logo"><Bot size={24}/></div><h2>{mode === 'login' ? 'Welcome back' : 'Create an account'}</h2>
     <p>Sign in to save and revisit your conversations.</p>
     <form onSubmit={submit}>
@@ -66,33 +81,88 @@ export default function App() {
   const bottom = useRef(null);
   const textRef = useRef(null);
   const abortRef = useRef(null);
-  useEffect(() => { bottom.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, loading]);
+
+  useEffect(() => { 
+    bottom.current?.scrollIntoView({ behavior: 'smooth' }); 
+  }, [messages, loading]);
+
   useEffect(() => {
-    if (!token) { setUser(null); setConversations([]); return; }
+    if (!token) { 
+      setUser(null); 
+      setConversations([]); 
+      return; 
+    }
+
     let active = true;
+
     Promise.all([api.me(), api.conversations()]).then(([me, list]) => {
-      if (active) { setUser(me); setConversations(Array.isArray(list) ? list : list?.conversations || []); }
+      if (active) {
+         setUser(me); 
+         setConversations(Array.isArray(list) ? list : list?.conversations || []);
+      }
     }).catch(err => { if (active) setError(err.message); });
+
     return () => { active = false; };
   }, [token]);
-  async function loggedIn() { setTokenState(getToken()); setConversationId(null); setMessages([]); }
-  function logout() { abortRef.current?.abort(); clearToken(); setTokenState(null); setUser(null); setConversationId(null); setMessages([]); setConversations([]); setError(''); }
-  function newChat() { setConversationId(null); setMessages([]); setError(''); setSidebarOpen(false); textRef.current?.focus(); }
-  async function openConversation(id) {
-    if (loading) return;
-    setError(''); setSidebarOpen(false);
-    try { const data = await api.conversation(id); setConversationId(id); setMessages(normalizeMessages(data)); }
-    catch (err) { setError(err.message); }
+
+  async function loggedIn() { 
+    setTokenState(getToken()); 
+    setConversationId(null); 
+    setMessages([]); 
   }
+
+  function logout() { 
+    abortRef.current?.abort(); 
+    clearToken(); 
+    setTokenState(null); 
+    setUser(null); 
+    setConversationId(null); 
+    setMessages([]); 
+    setConversations([]); 
+    setError(''); 
+  }
+
+  function newChat() { 
+    setConversationId(null); 
+    setMessages([]); 
+    setError(''); 
+    setSidebarOpen(false); 
+    textRef.current?.focus(); 
+  }
+
+  async function openConversation(id) {
+    if (loading) {
+      return;
+    }
+    setError(''); 
+    setSidebarOpen(false);
+    try { 
+      const data = await api.conversation(id); 
+      setConversationId(id); 
+      setMessages(normalizeMessages(data)); 
+    }
+    catch (err) { 
+      setError(err.message); 
+    }
+  }
+
   async function send(e) {
     e.preventDefault();
     const message = input.trim();
-    if (!message || loading) return;
-    if (!token) { setAuthOpen(true); setError('Please sign in to stream and save chats.'); return; }
+    if (!message || loading) {
+      return;
+    }
+    if (!token) { 
+      setAuthOpen(true); 
+      setError('Please sign in to stream and save chats.'); 
+      return; 
+    }
     const assistantId = `a-${crypto.randomUUID()}`;
     const controller = new AbortController();
     abortRef.current = controller;
-    setInput(''); setError(''); setLoading(true);
+    setInput(''); 
+    setError(''); 
+    setLoading(true);
     setMessages(prev => [...prev,
       { id: `u-${crypto.randomUUID()}`, role: 'user', content: message },
       { id: assistantId, role: 'assistant', content: '', status: 'streaming' }
@@ -109,15 +179,23 @@ export default function App() {
       const list = await api.conversations();
       setConversations(Array.isArray(list) ? list : list?.conversations || []);
     } catch (err) {
-      if (err.name !== 'AbortError') setError(err.message);
+      if (err.name !== 'AbortError') {
+        setError(err.message);
+      }
       setMessages(prev => prev.map(m => m.id === assistantId
-        ? { ...m, status: controller.signal.aborted ? 'cancelled' : 'failed' } : m));
+                  ? { ...m, status: controller.signal.aborted ? 'cancelled' : 'failed' } : m));
     } finally {
-      if (abortRef.current === controller) abortRef.current = null;
+      if (abortRef.current === controller) {
+        abortRef.current = null;
+      }
       setLoading(false);
     }
   }
-  function stopGenerating() { abortRef.current?.abort(); }
+  
+  function stopGenerating() { 
+    abortRef.current?.abort();
+  }
+
   return <div className="app">
     {sidebarOpen && <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} />}
     <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
