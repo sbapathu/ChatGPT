@@ -1,347 +1,215 @@
-
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from 'react';
+import { api, streamChat, getToken, setToken, clearToken } from './services/api';
+import { MessageSquarePlus, Send, LogOut, Menu, X, Bot, UserRound, LogIn, LoaderCircle, Square } from 'lucide-react';
 import "./App.css";
 
-const API = "http://localhost:8000/api/v1/api";
+function getReply(data) {
+  for (const key of ['reply', 'response', 'answer', 'assistant_message', 'content']) {
+    if (typeof data?.[key] === 'string') {
+      return data[key];
+    }
+    if (typeof data?.[key]?.content === 'string') {
+      return data[key].content;
+    }
+  }
+  if (typeof data?.message === 'string') return data.message;
+  return JSON.stringify(data);
+}
+
+function normalizeMessages(data) {
+  const items = Array.isArray(data) ? data : data?.messages || [];
+  return items.map((item, index) => ({ id: item.id ?? index, role: item.role === 'assistant' ? 'assistant' : 'user', content: item.content ?? item.message ?? '' }));
+}
+
+function AuthForm({ onClose, onSuccess }) {
+  const [mode, setMode] = useState('login');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  async function submit(e) {
+    e.preventDefault(); 
+    setBusy(true); 
+    setError('');
+    try {
+      if (mode === 'register') {
+        await api.register({ email, password, full_name: name });
+      }
+      const result = await api.login({ email, password });
+      const token = result.access_token || result.token;
+      if (!token) { 
+        throw new Error('Login succeeded but no access token was returned.');
+      }
+      setToken(token); 
+      await onSuccess(); 
+      onClose();
+    } catch (err) { 
+      setError(err.message); 
+    }
+    finally { 
+      setBusy(false); 
+    }
+  }
+  return <div className="modal-backdrop" onMouseDown={onClose}>
+            <div className="modal" onMouseDown={e => e.stopPropagation()}>
+              <button className="close" onClick={onClose} aria-label="Close"><X size={20}/></button>
+    <div className="logo"><Bot size={24}/></div><h2>{mode === 'login' ? 'Welcome back' : 'Create an account'}</h2>
+    <p>Sign in to save and revisit your conversations.</p>
+    <form onSubmit={submit}>
+      {mode === 'register' && <label>Full name<input value={name} onChange={e => setName(e.target.value)} placeholder="Your name" required /></label>}
+      <label>Email<input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" required /></label>
+      <label>Password<input type="password" value={password} onChange={e => setPassword(e.target.value)} minLength={8} required /></label>
+      {error && <div className="error">{error}</div>}
+      <button className="primary" disabled={busy}>{busy ? 'Please wait...' : mode === 'login' ? 'Sign in' : 'Create account'}</button>
+    </form>
+    <button className="switch" onClick={() => { setMode(mode === 'login' ? 'register' : 'login'); setError(''); }}>{mode === 'login' ? 'New here? Create an account' : 'Already registered? Sign in'}</button>
+  </div></div>;
+}
 
 export default function App() {
-  const [token, setToken] = useState("");
+  const [token, setTokenState] = useState(getToken());
   const [user, setUser] = useState(null);
-  const [mode, setMode] = useState("login");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [messages, setMessages] = useState([]);
-  const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const bottomRef = useRef(null);
-  const [conversationId, setConversationId] = useState(null);
   const [conversations, setConversations] = useState([]);
+  const [conversationId, setConversationId] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [input, setInput] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [authOpen, setAuthOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const bottom = useRef(null);
+  const textRef = useRef(null);
+  const abortRef = useRef(null);
 
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({
-      behavior: "smooth",
-    });
+  useEffect(() => { 
+    bottom.current?.scrollIntoView({ behavior: 'smooth' }); 
   }, [messages, loading]);
 
   useEffect(() => {
-    if (!token) return;
+    if (!token) { 
+      setUser(null); 
+      setConversations([]); 
+      return; 
+    }
 
-    loadConversations().catch((err) => {
-      setError(err.message);
-    });
+    let active = true;
+
+    Promise.all([api.me(), api.conversations()]).then(([me, list]) => {
+      if (active) {
+         setUser(me); 
+         setConversations(Array.isArray(list) ? list : list?.conversations || []);
+      }
+    }).catch(err => { if (active) setError(err.message); });
+
+    return () => { active = false; };
   }, [token]);
 
-  async function authRequest(event) {
-    event.preventDefault();
-    setError("");
-    setLoading(true);
-
-    try {
-      const response = await fetch(
-        `${API}/auth/${mode === "register" ? "register" : "login"}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, password }),
-        }
-      );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.detail || "Authentication failed");
-      }
-      console.log("Authentication successful:", data);
-      setToken(data.access_token);
-      setUser(data.user);
-      setPassword("");
-      setMessages([]);
-    } catch (err) {
-      console.error("Authentication error:", err);
-      setError(err.message || "Could not connect to server");
-    } finally {
-      console.log("Setting loading to false");
-      setLoading(false);
-    }
+  async function loggedIn() { 
+    setTokenState(getToken()); 
+    setConversationId(null); 
+    setMessages([]); 
   }
 
-  async function sendMessage(event) {
-    event.preventDefault();
-    const text = input.trim();
-
-    if (!text || loading || !token) return;
-
-    const updated = [
-      ...messages,
-      { role: "user", content: text },
-    ];
-
-    setMessages(updated);
-    setInput("");
-    setError("");
-    setLoading(true);
-
-    try {
-      const response = await fetch(`${API}/chat`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ messages: updated , conversation_id: conversationId}),
-      });
-
-      const data = await response.json();
-
-      if (response.status === 401) {
-        setToken("");
-        setUser(null);
-        setMessages([]);
-        throw new Error("Session expired. Please log in again.");
-      }
-
-      if (!response.ok) {
-        throw new Error(data.detail || "Chat request failed");
-      }
-
-      setConversationId(data.conversation_id);
-
-      setMessages([
-        ...updated,
-        { role: "assistant", content: data.reply },
-      ]);
-
-      loadConversations().catch(console.error);
-
-    } catch (err) {
-      setError(err.message || "Unable to reach the AI");
-    } finally {
-      setLoading(false);
-    }
+  function logout() { 
+    abortRef.current?.abort(); 
+    clearToken(); 
+    setTokenState(null); 
+    setUser(null); 
+    setConversationId(null); 
+    setMessages([]); 
+    setConversations([]); 
+    setError(''); 
   }
 
-  
-  async function loadConversations() {
-    const response = await fetch(
-      `${API}/conversations`,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error("Unable to load conversations");
-    }
-
-    setConversations(await response.json());
+  function newChat() { 
+    setConversationId(null); 
+    setMessages([]); 
+    setError(''); 
+    setSidebarOpen(false); 
+    textRef.current?.focus(); 
   }
 
   async function openConversation(id) {
-    setError("");
-
-    try {
-      const response = await fetch(
-        `${API}/conversations/${id}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          data.detail || "Unable to open conversation"
-        );
-      }
-
-      setConversationId(data.id);
-      setMessages(data.messages);
-    } catch (err) {
-      setError(err.message);
+    if (loading) {
+      return;
+    }
+    setError(''); 
+    setSidebarOpen(false);
+    try { 
+      const data = await api.conversation(id); 
+      setConversationId(id); 
+      setMessages(normalizeMessages(data)); 
+    }
+    catch (err) { 
+      setError(err.message); 
     }
   }
 
-  function logout() {
-    setToken("");
-    setUser(null);
-    setMessages([]);
-    setInput("");
-    setError("");
-    setMode("login");
-    setConversationId(null);
+  async function send(e) {
+    e.preventDefault();
+    const message = input.trim();
+    if (!message || loading) {
+      return;
+    }
+    if (!token) { 
+      setAuthOpen(true); 
+      setError('Please sign in to stream and save chats.'); 
+      return; 
+    }
+    const assistantId = `a-${crypto.randomUUID()}`;
+    const controller = new AbortController();
+    abortRef.current = controller;
+    setInput(''); 
+    setError(''); 
+    setLoading(true);
+    setMessages(prev => [...prev,
+      { id: `u-${crypto.randomUUID()}`, role: 'user', content: message },
+      { id: assistantId, role: 'assistant', content: '', status: 'streaming' }
+    ]);
+    try {
+      await streamChat(message, conversationId, {
+        signal: controller.signal,
+        onMeta: data => setConversationId(data.conversation_id),
+        onToken: chunk => setMessages(prev => prev.map(m =>
+          m.id === assistantId ? { ...m, content: m.content + chunk } : m)),
+        onDone: data => setMessages(prev => prev.map(m =>
+          m.id === assistantId ? { ...m, status: 'completed', serverId: data.assistant_message_id } : m))
+      });
+      const list = await api.conversations();
+      setConversations(Array.isArray(list) ? list : list?.conversations || []);
+    } catch (err) {
+      if (err.name !== 'AbortError') {
+        setError(err.message);
+      }
+      setMessages(prev => prev.map(m => m.id === assistantId
+                  ? { ...m, status: controller.signal.aborted ? 'cancelled' : 'failed' } : m));
+    } finally {
+      if (abortRef.current === controller) {
+        abortRef.current = null;
+      }
+      setLoading(false);
+    }
+  }
+  
+  function stopGenerating() { 
+    abortRef.current?.abort();
   }
 
-  function newChat() {
-    setConversationId(null);
-    setMessages([]);
-    setInput("");
-    setError("");
-  }
-
-  if (!token || !user) {
-    return (
-      <main className="auth-page">
-        <form className="auth-card" onSubmit={authRequest}>
-          <h1>ChatGpt Local</h1>
-          <p>
-            {mode === "login"
-              ? "Sign in to your AI assistant"
-              : "Create your account"}
-          </p>
-
-          <label htmlFor="email">Email</label>
-          <input
-            id="email"
-            type="email"
-            autoComplete="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-
-          <label htmlFor="password">Password</label>
-          <input
-            id="password"
-            type="password"
-            autoComplete={
-              mode === "login"
-                ? "current-password"
-                : "new-password"
-            }
-            minLength={8}
-            maxLength={128}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
-
-          {mode === "register" && (
-            <small>Password must contain at least 8 characters.</small>
-          )}
-
-          {error && <p className="auth-error">{error}</p>}
-
-          <button type="submit" disabled={loading}>
-            {loading
-              ? "Please wait..."
-              : mode === "login"
-              ? "Login"
-              : "Create account"}
-          </button>
-
-          <p className="switch-mode">
-            {mode === "login"
-              ? "New here?"
-              : "Already have an account?"}{" "}
-            <button
-              type="button"
-              className="text-button"
-              onClick={() => {
-                setMode(mode === "login" ? "register" : "login");
-                setError("");
-              }}
-            >
-              {mode === "login" ? "Register" : "Login"}
-            </button>
-          </p>
-        </form>
-      </main>
-    );
-  }
-
-  return (
-    <div className="app">
-      <aside className="sidebar">
-        <h2>ChatGpt AI</h2>
-        <button onClick={newChat}>+ New chat</button> 
+  return <div className="app">
+    {sidebarOpen && <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} />}
+    <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
+      <div className="sidebar-head"><span className="brand"><Bot size={23}/> Modern Chat</span><button className="icon-btn mobile-only" onClick={() => setSidebarOpen(false)} aria-label="Close menu"><X size={20}/></button></div>
+      <button className="new-chat" onClick={newChat}><MessageSquarePlus size={18}/> New chat</button>
+      <div className="history-title">Your conversations</div>
+      <div className="history">{token ? (conversations.length ? conversations.map(c => <button key={c.id} className={`history-item ${conversationId === c.id ? 'selected' : ''}`} onClick={() => openConversation(c.id)} title={c.title || `Chat ${c.id}`}><span>{c.title || `Conversation ${c.id}`}</span></button>) : <p className="empty-history">No saved conversations yet.</p>) : <p className="empty-history">Sign in to save your chat history.</p>}</div>
+      <div className="sidebar-foot">{token ? <><span className="account-name">{user?.full_name || user?.email || 'Signed in'}</span><button onClick={logout}><LogOut size={17}/> Log out</button></> : <button onClick={() => setAuthOpen(true)}><LogIn size={17}/> Sign in / Register</button>}</div>
+    </aside>
+    <main className="main"><header className="topbar"><button className="icon-btn mobile-only" onClick={() => setSidebarOpen(true)} aria-label="Open menu"><Menu size={22}/></button><span>Modern Chat <span className="model-tag">Ollama</span></span>{!token && <button className="header-login" onClick={() => setAuthOpen(true)}>Sign in</button>}</header>
+      <div className="messages-scroll"><div className={`messages ${messages.length === 0 ? 'welcome-container' : ''}`}>
+        {messages.length === 0 ? <div className="welcome"><div className="welcome-icon"><Bot size={34}/></div><h1>How can I help you today?</h1><p>Ask anything. Powered by your local Ollama model.</p></div> : messages.map(m => <div className={`message ${m.role}`} key={m.id}><div className="avatar">{m.role === 'assistant' ? <Bot size={18}/> : <UserRound size={18}/>}</div><div className="message-body">{m.content}</div></div>)}
         
-        <div className="conversation-list">
-          <h4>Recent chats</h4>
-
-          {conversations.map((conversation) => (
-            <button
-              key={conversation.id}
-              className={
-                conversationId === conversation.id
-                  ? "conversation-item active"
-                  : "conversation-item"
-              }
-              onClick={() => openConversation(conversation.id)}
-            >
-              {conversation.title}
-            </button>
-          ))}
-        </div>
-      </aside>
-
-      <main className="chat">
-        <header className="topbar">
-          <strong>ChatGPT Clone</strong>
-          <div className="account">
-            <p><b>{user.email}</b></p>
-            <button onClick={logout}><b>Logout</b></button>
-          </div>
-        </header>
-
-        <section className="messages">
-          {messages.length === 0 && (
-            <div className="welcome">
-              <h1>What can I help with?</h1>
-              <p>You're signed in. Ask your AI a question.</p>
-            </div>
-          )}
-
-          {messages.map((message, index) => (
-            <div
-              className={`message ${message.role}`}
-              key={index}
-            >
-              <div className="avatar">
-                {message.role === "user" ? "You" : "AI"}
-              </div>
-              <div className="content">
-                <strong>
-                  {message.role === "user" ? "You" : "Assistant"}
-                </strong>
-                <p>{message.content}</p>
-              </div>
-            </div>
-          ))}
-
-          {loading && <p className="thinking">AI is thinking...</p>}
-          {error && <p className="auth-error">{error}</p>}
-          <div ref={bottomRef} />
-        </section>
-
-        <form className="composer" onSubmit={sendMessage}>
-          <textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                sendMessage(e);
-              }
-            }}
-            placeholder="Message your AI..."
-            rows={2}
-            disabled={loading}
-          />
-          <button type="submit" disabled={loading || !input.trim()}>
-            ↑
-          </button>
-        </form>
-
-        <p className="disclaimer">
-          AI responses may not accurate.
-        </p>
-      </main>
-    </div>
-  );
+        <div ref={bottom}/></div></div>
+      <div className="composer-area">{error && <div className="chat-error">{error}</div>}<form className="composer" onSubmit={send}><textarea ref={textRef} rows={1} value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.currentTarget.form.requestSubmit(); } }} placeholder="Message Modern Chat..." aria-label="Message"/>{loading ? <button type="button" onClick={stopGenerating} aria-label="Stop generating"><Square size={19}/></button> : <button type="submit" disabled={!input.trim()} aria-label="Send message"><Send size={19}/></button>}</form><div className="disclaimer">{token ? 'Your conversations are saved to your backend.' : 'Sign in to enable streaming and saved chat history.'}</div></div>
+    </main>{authOpen && <AuthForm onClose={() => setAuthOpen(false)} onSuccess={loggedIn}/>}</div>;
 }
